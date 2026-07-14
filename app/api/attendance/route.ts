@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getConfig, getWhitelist, appendAttendance } from "@/lib/google-sheets";
 import { calculateDistance } from "@/lib/geofencing";
+import { getAttendanceEnvConfig } from "@/lib/env";
 
 export async function POST(req: Request) {
   try {
@@ -12,12 +13,17 @@ export async function POST(req: Request) {
     }
 
     const config = await getConfig();
+    const envConfig = getAttendanceEnvConfig();
 
     if (config.isOpen !== "true") {
       return NextResponse.json({ error: "Attendance is currently closed." }, { status: 403 });
     }
 
-    if (password !== config.sharedPassword) {
+    if (!envConfig.sharedPassword) {
+      return NextResponse.json({ error: "Shared password is not configured." }, { status: 500 });
+    }
+
+    if (password !== envConfig.sharedPassword) {
       return NextResponse.json({ error: "Invalid shared password." }, { status: 401 });
     }
 
@@ -26,9 +32,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Member not found in whitelist." }, { status: 403 });
     }
 
-    const churchLat = parseFloat(config.churchLat);
-    const churchLng = parseFloat(config.churchLng);
-    const allowedRadius = parseFloat(config.allowedRadius);
+    const churchLat = parseFloat(envConfig.churchLat || config.churchLat);
+    const churchLng = parseFloat(envConfig.churchLng || config.churchLng);
+    const allowedRadius = parseFloat(envConfig.allowedRadius || config.allowedRadius);
 
     const distance = calculateDistance(latitude, longitude, churchLat, churchLng);
     const isInside = distance <= allowedRadius;

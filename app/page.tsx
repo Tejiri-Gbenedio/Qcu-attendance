@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Church, Clock, CalendarDays, ShieldCheck, ShieldAlert } from "lucide-react";
+import Image from "next/image";
+import { Clock, CalendarDays, ShieldCheck, ShieldAlert } from "lucide-react";
 import { AttendanceCard } from "@/components/public/attendance-card";
 import { Badge } from "@/components/ui/badge";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function HomePage() {
   const [currentTime, setCurrentTime] = useState<string>("");
@@ -27,8 +29,8 @@ export default function HomePage() {
           const data = await res.json();
           setIsOpen(data.isOpen);
         }
-      } catch (error) {
-        console.error("Failed to fetch status");
+      } catch {
+        // silent fail
       }
     };
     fetchStatus();
@@ -41,56 +43,106 @@ export default function HomePage() {
   }, []);
 
   return (
-    <main className="min-h-screen w-full bg-gradient-to-b from-background to-secondary/30 flex flex-col items-center justify-center p-4 sm:p-8 relative overflow-hidden">
-      {/* Background Decorations */}
-      <div className="absolute top-0 left-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
+    <main className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-8 relative z-10">
+      {/* Top Right Controls */}
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
+        <ThemeToggle />
+      </div>
 
       <div className="z-10 w-full max-w-5xl mx-auto flex flex-col items-center">
-        {/* Header / Hero */}
+        {/* Hero Section */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           className="flex flex-col items-center text-center mb-10"
         >
-          <div className="w-24 h-24 rounded-3xl bg-primary/5 border border-border flex items-center justify-center mb-6 shadow-sm">
-            <Church className="w-12 h-12 text-primary" strokeWidth={1.5} />
-          </div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold font-display tracking-tight text-foreground mb-2">
-            Quality Control Unit
-          </h1>
-          <p className="text-muted-foreground text-sm sm:text-base max-w-md mb-6">
-            Secure geofenced attendance platform. Ensure authenticity, prevent fraud.
-          </p>
+          {/* Logo in floating glass card */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.7, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+            className="relative mb-8"
+          >
+            <div className="absolute inset-0 brand-gradient rounded-3xl blur-2xl opacity-30 animate-breathe" />
+            <div className="relative w-28 h-28 rounded-3xl glass-card flex items-center justify-center shadow-2xl animate-breathe overflow-hidden">
+              <Image
+                src="/soja-logo.jpeg"
+                alt="Streams of Joy International"
+                width={96}
+                height={96}
+                className="rounded-2xl object-cover"
+                priority
+              />
+            </div>
+          </motion.div>
 
-          {/* Date & Time Card */}
-          <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md mb-6">
-            <div className="flex-1 bg-card/80 backdrop-blur border border-border rounded-xl p-4 flex items-center gap-3 shadow-sm">
-              <CalendarDays className="w-5 h-5 text-muted-foreground" />
-              <span className="text-sm font-medium text-foreground">{currentDate}</span>
+          <motion.h1
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="text-4xl sm:text-5xl md:text-6xl font-bold font-display tracking-tight mb-3"
+          >
+            <span className="brand-gradient-text">Quality Control Unit</span>
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="text-muted-foreground text-sm sm:text-base max-w-md mb-2"
+          >
+            Secure location-based attendance platform ensuring authenticity, accountability and excellence.
+          </motion.p>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            className="text-xs text-muted-foreground/60 uppercase tracking-widest font-medium mb-8"
+          >
+            Streams of Joy International
+          </motion.p>
+
+          {/* Date & Time Glass Cards */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+            className="flex flex-col sm:flex-row gap-3 w-full max-w-md mb-6"
+          >
+            <div className="flex-1 glass-card px-5 py-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <CalendarDays className="w-5 h-5 text-primary" />
+              </div>
+              <span className="text-sm font-medium text-foreground">{currentDate || "—"}</span>
             </div>
-            <div className="flex-1 bg-card/80 backdrop-blur border border-border rounded-xl p-4 flex items-center gap-3 shadow-sm">
-              <Clock className="w-5 h-5 text-muted-foreground" />
-              <span className="text-sm font-medium text-foreground tabular-nums">{currentTime}</span>
+            <div className="flex-1 glass-card px-5 py-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
+                <Clock className="w-5 h-5 text-accent" />
+              </div>
+              <span className="text-sm font-medium text-foreground tabular-nums">{currentTime || "--:--:--"}</span>
             </div>
-          </div>
+          </motion.div>
 
           {/* Status Badge */}
           <motion.div
-            initial={{ scale: 0.9 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 200, damping: 10 }}
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 200, damping: 12, delay: 0.6 }}
           >
             {isOpen === null ? (
-              <Badge variant="secondary" className="px-4 py-2 text-sm">Loading status...</Badge>
+              <Badge variant="secondary" className="px-5 py-2.5 text-sm">Loading status...</Badge>
             ) : isOpen ? (
-              <Badge className="px-4 py-2 text-sm bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500/20">
-                <ShieldCheck className="w-4 h-4 mr-2" />
-                Attendance Open
-              </Badge>
+              <motion.div
+                animate={{ boxShadow: ["0 0 0px rgba(16,185,129,0)", "0 0 20px rgba(16,185,129,0.15)", "0 0 0px rgba(16,185,129,0)"] }}
+                transition={{ duration: 3, repeat: Infinity }}
+              >
+                <Badge variant="success" className="px-5 py-2.5 text-sm">
+                  <ShieldCheck className="w-4 h-4 mr-2" />
+                  Attendance Open
+                </Badge>
+              </motion.div>
             ) : (
-              <Badge variant="destructive" className="px-4 py-2 text-sm">
+              <Badge variant="destructive" className="px-5 py-2.5 text-sm">
                 <ShieldAlert className="w-4 h-4 mr-2" />
                 Attendance Closed
               </Badge>
@@ -100,6 +152,16 @@ export default function HomePage() {
 
         {/* Attendance Form */}
         <AttendanceCard isOpen={isOpen} />
+
+        {/* Footer */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 1 }}
+          className="text-xs text-muted-foreground/40 mt-12 text-center"
+        >
+          © {new Date().getFullYear()} Streams of Joy International · Quality Control Unit
+        </motion.p>
       </div>
     </main>
   );

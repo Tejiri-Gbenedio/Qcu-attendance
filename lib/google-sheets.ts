@@ -1,13 +1,16 @@
 import { google } from "googleapis";
+import { getGoogleEnv } from "@/lib/env";
+
+const googleEnv = getGoogleEnv();
 
 const auth = new google.auth.JWT({
-  email: process.env.GOOGLE_SHEETS_CLIENT_EMAIL,
-  key: process.env.GOOGLE_SHEETS_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+  email: googleEnv.serviceAccountEmail,
+  key: googleEnv.privateKey,
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 
 const sheets = google.sheets({ version: "v4", auth });
-const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+const SPREADSHEET_ID = googleEnv.sheetId;
 
 export async function getConfig() {
   const res = await sheets.spreadsheets.values.get({
@@ -35,7 +38,7 @@ export async function updateConfig(newConfig: Record<string, string>) {
 export async function getWhitelist() {
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: "Whitelist!A:A",
+    range: "Whitelist!B:B",
   });
   const rows = res.data.values || [];
   return rows.flat().map((name) => name.trim().toLowerCase()).filter(Boolean);

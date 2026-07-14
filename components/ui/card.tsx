@@ -1,15 +1,16 @@
 import * as React from "react"
-
 import { cn } from "@/lib/utils"
 
 const Card = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
+  React.HTMLAttributes<HTMLDivElement> & { variant?: "default" | "glass" | "gradient-border" }
+>(({ className, variant = "default", ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
-      "rounded-xl border bg-card text-card-foreground shadow",
+      variant === "default" && "rounded-2xl border border-border bg-card text-card-foreground shadow-lg shadow-black/[0.03]",
+      variant === "glass" && "glass-card shadow-xl shadow-black/[0.06]",
+      variant === "gradient-border" && "gradient-border shadow-xl shadow-black/[0.06]",
       className
     )}
     {...props}
@@ -35,7 +36,7 @@ const CardTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("font-semibold leading-none tracking-tight", className)}
+    className={cn("font-semibold leading-none tracking-tight text-base", className)}
     {...props}
   />
 ))

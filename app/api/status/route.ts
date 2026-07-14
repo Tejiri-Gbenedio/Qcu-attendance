@@ -1,23 +1,19 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { getConfig, updateConfig } from "@/lib/google-sheets";
-
-const isAuthenticated = async () => {
-  const cookieStore = await cookies();
-  return cookieStore.get("admin_session")?.value === (process.env.AUTH_SECRET || "qcu-secret");
-};
+import { isAdminAuthenticated } from "@/lib/auth";
 
 export async function GET() {
   try {
     const config = await getConfig();
     return NextResponse.json({ isOpen: config.isOpen === "true" });
   } catch (error) {
+    console.error("Failed to fetch attendance status:", error);
     return NextResponse.json({ error: "Failed to fetch status" }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
-  if (!(await isAuthenticated())) {
+  if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -28,6 +24,7 @@ export async function POST(req: Request) {
     await updateConfig(config);
     return NextResponse.json({ success: true, isOpen: config.isOpen === "true" });
   } catch (error) {
+    console.error("Failed to update attendance status:", error);
     return NextResponse.json({ error: "Failed to update status" }, { status: 500 });
   }
 }

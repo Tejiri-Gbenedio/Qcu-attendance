@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { getConfig } from "@/lib/google-sheets";
+import { isValidAdminPassword, setAdminSession } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
@@ -10,18 +9,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Password is required" }, { status: 400 });
     }
 
-    const config = await getConfig();
+    if (isValidAdminPassword(password)) {
+      const sessionSet = await setAdminSession();
 
-    if (password === config.adminPassword) {
-      // Set a simple session cookie
-      const cookieStore = await cookies();
-      cookieStore.set("admin_session", process.env.AUTH_SECRET || "qcu-secret", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 60 * 60 * 24 * 7, // 1 week
-        path: "/",
-      });
+      if (!sessionSet) {
+        return NextResponse.json({ error: "Admin password is not configured" }, { status: 500 });
+      }
+
       return NextResponse.json({ success: true });
     }
 

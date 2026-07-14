@@ -1,108 +1,99 @@
-Quality Control Unit Church Attendance Platform
+# Quality Control Unit Church Attendance Platform
 
-A premium, geofenced attendance platform built for church departments to prevent fraudulent check-ins.
+A geofenced attendance platform built for church departments to prevent fraudulent check-ins.
 
+## Tech Stack
 
+- Next.js 15 App Router
+- TypeScript
+- Tailwind CSS
+- Framer Motion
+- Google Sheets API
 
-Tech Stack
+## Environment Setup
 
-Next.js 15 (App Router)
+Create `.env.local` in the project root for local development:
 
-TypeScript
+```env
+ADMIN_PASSWORD=QCADMIN2026
+SHARED_PASSWORD=QCSOJA
+CHURCH_LATITUDE=0.000
+CHURCH_LONGITUDE=0.000
+GEOFENCE_RADIUS=100
+GOOGLE_SHEET_ID=your_google_spreadsheet_id_here
+GOOGLE_SERVICE_ACCOUNT_EMAIL=your-service-account-email@your-project.iam.gserviceaccount.com
+GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n"
+```
 
-Tailwind CSS
+`ADMIN_PASSWORD` is only checked on the backend. It is never sent to the browser.
 
-Framer Motion
+`SHARED_PASSWORD` is the member attendance password checked by the attendance API.
 
-Google Sheets API (acting as the database)
+## Run Locally
 
-Prerequisites
+```bash
+npm install
+npm run dev
+```
 
-Node.js (v18 or higher)
+Open `http://localhost:3000`.
 
-A Google Cloud account
+Admin login is available at `http://localhost:3000/admin/login`.
 
-A Vercel account (for deployment)
+## Google Sheets Setup
 
-Google Sheets Setup
+Create a Google Sheet with three tabs named exactly:
 
-Create a Google Sheet
+- `Config`
+- `Whitelist`
+- `Attendance`
 
-Name it QCU Attendance (or anything you prefer).
+In `Config`, add:
 
-Create three tabs (sheets) at the bottom named exactly:
+- `A1: churchLat`, `B1: 0.000`
+- `A2: churchLng`, `B2: 0.000`
+- `A3: allowedRadius`, `B3: 100`
+- `A4: isOpen`, `B4: false`
 
-Config
+Passwords are read from environment variables, not from Google Sheets.
 
-Whitelist
+In `Whitelist`, put `Name` in `A1`, then list member names below it.
 
-Attendance
+In `Attendance`, add this header row:
 
-Configure the Config Tab
+```text
+Date | Service | Member Name | Time | Latitude | Longitude | Distance | Status | Reason | Browser | Device
+```
 
-In cell A1 type: churchLat | In B1 type: 0.000 (Replace with actual church latitude later)
+## Google Cloud Credentials
 
-In cell A2 type: churchLng | In B2 type: 0.000 (Replace with actual church longitude later)
+1. Go to Google Cloud Console.
+2. Enable the Google Sheets API.
+3. Create a Service Account.
+4. Create a JSON key for the Service Account.
+5. Use the JSON `client_email` as `GOOGLE_SERVICE_ACCOUNT_EMAIL`.
+6. Use the JSON `private_key` as `GOOGLE_PRIVATE_KEY`.
+7. Share the Google Sheet with the Service Account email and give it Editor access.
+8. Copy the spreadsheet ID into `GOOGLE_SHEET_ID`.
 
-In cell A3 type: allowedRadius | In B3 type: 100 (Radius in meters)
+## Deploy on Vercel
 
-In cell A4 type: sharedPassword | In B4 type: churchpass123
+1. Push the repo to GitHub.
+2. Import the repo in Vercel.
+3. Add these Environment Variables in Vercel Project Settings:
 
-In cell A5 type: adminPassword | In B5 type: admin123
+```env
+ADMIN_PASSWORD=
+SHARED_PASSWORD=
+CHURCH_LATITUDE=
+CHURCH_LONGITUDE=
+GEOFENCE_RADIUS=
+GOOGLE_SHEET_ID=
+GOOGLE_SERVICE_ACCOUNT_EMAIL=
+GOOGLE_PRIVATE_KEY=
+```
 
-In cell A6 type: isOpen | In B6 type: false
+4. Deploy.
 
-Configure the Whitelist Tab
-
-In cell A1 type: Name
-
-Below A1, list all member names (one per row). e.g., "John Doe", "Jane Smith".
-
-Configure the Attendance Tab
-
-In row 1, add the following headers exactly:
-
-A1: Date
-
-B1: Service
-
-C1: Member Name
-
-D1: Time
-
-E1: Latitude
-
-F1: Longitude
-
-G1: Distance
-
-H1: Status
-
-I1: Reason
-
-J1: Browser
-
-K1: Device
-
-Google Cloud Credentials Setup
-
-Go to the Google Cloud Console.
-
-Create a new project.
-
-Navigate to APIs \& Services > Library and enable the Google Sheets API.
-
-Go to APIs \& Services > Credentials.
-
-Click Create Credentials > Service Account.
-
-Give it a name and create it.
-
-Open the created service account, go to the Keys tab, click Add Key > Create new key, select JSON, and download it.
-
-Open the JSON file. You will need the client\_email and private\_key from it.
-
-Go to your Google Sheet, click Share, and share the spreadsheet with the client\_email address from the JSON file (give it Editor access).
-
-Copy the Spreadsheet ID from the URL (e.g., https://docs.google.com/spreadsheets/d/SPREADSHEET\_ID/edit).
+If any required environment variable is missing, the app logs a clear console error instead of exposing secrets or returning HTML from API routes.
 

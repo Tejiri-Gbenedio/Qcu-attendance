@@ -24,3 +24,8 @@ Thumbs.db
 # TypeScript cache
 *.tsbuildinfo
 next-env.d.ts
+
+# Misc
+/tmp-inspect-google-sheet.js
+/logo
+/.agents

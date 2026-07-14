@@ -1,14 +1,9 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { getAttendanceRecords } from "@/lib/google-sheets";
-
-const isAuthenticated = async () => {
-  const cookieStore = await cookies();
-  return cookieStore.get("admin_session")?.value === (process.env.AUTH_SECRET || "qcu-secret");
-};
+import { isAdminAuthenticated } from "@/lib/auth";
 
 export async function GET() {
-  if (!(await isAuthenticated())) {
+  if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
