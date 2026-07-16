@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import { formatLagosTimeWithSeconds, formatLagosDateLong } from "@/lib/timezone";
 import { Clock, CalendarDays, ShieldCheck, ShieldAlert } from "lucide-react";
 import { AttendanceCard } from "@/components/public/attendance-card";
 import { Badge } from "@/components/ui/badge";
@@ -16,8 +17,8 @@ export default function HomePage() {
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      setCurrentTime(now.toLocaleTimeString("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", second: "2-digit" }));
-      setCurrentDate(now.toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", weekday: "long", year: "numeric", month: "long", day: "numeric" }));
+      setCurrentTime(formatLagosTimeWithSeconds(now));
+      setCurrentDate(formatLagosDateLong(now));
     };
     updateTime();
     const interval = setInterval(updateTime, 1000);

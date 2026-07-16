@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { toast } from "sonner";
+import { formatLagosTime } from "@/lib/timezone";
 import {
   Loader2, MapPin, User, KeyRound, CheckCircle2, Sparkles,
   Satellite, Navigation, AlertCircle, Check, Church,
@@ -216,7 +217,7 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
           const now = new Date();
           setSuccessData({
             name: name,
-            time: now.toLocaleTimeString("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit" }),
+            time: formatLagosTime(now),
           });
           setSuccess(true);
           toast.success("Attendance signed successfully!");

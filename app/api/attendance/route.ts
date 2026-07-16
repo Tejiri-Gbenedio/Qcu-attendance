@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getConfig, getWhitelist, appendAttendance } from "@/lib/google-sheets";
 import { calculateDistance } from "@/lib/geofencing";
 import { getAttendanceEnvConfig } from "@/lib/env";
+import { formatLagosTime, formatLagosDate } from "@/lib/timezone";
 
 export async function POST(req: Request) {
   try {
@@ -55,10 +56,10 @@ export async function POST(req: Request) {
 
     const now = new Date();
     const record = {
-      date: now.toLocaleDateString("en-GB", { timeZone: "Africa/Lagos" }),
+      date: formatLagosDate(now),
       service: service,
       memberName: name,
-      time: now.toLocaleTimeString("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit" }),
+      time: formatLagosTime(now),
       latitude: latitude.toString(),
       longitude: longitude.toString(),
       distance: distance.toFixed(2),
