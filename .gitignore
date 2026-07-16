@@ -29,3 +29,5 @@ next-env.d.ts
 /tmp-inspect-google-sheet.js
 /logo
 /.agents
+
+.vercel

@@ -75,7 +75,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
                 alt="Streams of Joy International"
                 width={68}
                 height={68}
-                className="rounded-2xl object-cover"
+                className="rounded-2xl object-cover dark:brightness-[1.15] dark:contrast-[1.1]"
                 priority
               />
             </div>

@@ -71,7 +71,7 @@ export default function HomePage() {
                 alt="Streams of Joy International"
                 width={96}
                 height={96}
-                className="rounded-2xl object-cover"
+                className="rounded-2xl object-cover dark:brightness-[1.15] dark:contrast-[1.1]"
                 priority
               />
             </div>

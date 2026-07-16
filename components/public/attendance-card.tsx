@@ -1,17 +1,30 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, MapPin, User, KeyRound, CheckCircle2, Sparkles } from "lucide-react";
+import {
+  Loader2, MapPin, User, KeyRound, CheckCircle2, Sparkles,
+  Satellite, Navigation, AlertCircle, Check,
+} from "lucide-react";
 
 interface AttendanceCardProps {
   isOpen: boolean | null;
 }
+
+interface GpsPhase {
+  label: string;
+  icon: typeof Satellite;
+}
+
+const GPS_PHASES: GpsPhase[] = [
+  { label: "Acquiring GPS signal...", icon: Satellite },
+  { label: "Verifying location...", icon: Navigation },
+];
 
 export function AttendanceCard({ isOpen }: AttendanceCardProps) {
   const [name, setName] = useState("");
@@ -19,7 +32,114 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [successData, setSuccessData] = useState<{ name: string; time: string } | null>(null);
+  const [gpsPhase, setGpsPhase] = useState(0);
 
+  /* ---------- Autocomplete state ---------- */
+  const [whitelist, setWhitelist] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [nameTouched, setNameTouched] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  /* ---------- Inline validation ---------- */
+  const nameError = nameTouched && name.trim().length > 0 && whitelist.length > 0
+    ? (!isNameValid(name) ? "Name not found in the whitelist. Check spelling or try a different combination of your names." : null)
+    : null;
+
+  const passwordError = nameTouched && password.length > 0 && password.length < 3
+    ? "Password seems too short."
+    : null;
+
+  function isNameValid(value: string): boolean {
+    const inputWords = value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (inputWords.length === 0) return false;
+    return whitelist.some((wn) => {
+      const ww = wn.split(/\s+/);
+      return inputWords.every((w) => ww.includes(w));
+    });
+  }
+
+  /* ---------- Fetch whitelist ---------- */
+  useEffect(() => {
+    const fetchWhitelist = async () => {
+      try {
+        const res = await fetch("/api/whitelist");
+        if (res.ok) {
+          const data = await res.json();
+          setWhitelist(data.names);
+        }
+      } catch {
+        // silent
+      }
+    };
+    fetchWhitelist();
+  }, []);
+
+  /* ---------- Autocomplete filtering ---------- */
+  const updateSuggestions = useCallback((value: string) => {
+    const trimmed = value.trim().toLowerCase();
+    if (!trimmed) {
+      setSuggestions([]);
+      setShowDropdown(false);
+      return;
+    }
+    const inputWords = trimmed.split(/\s+/).filter(Boolean);
+    const matches = whitelist.filter((wn) => {
+      const ww = wn.split(/\s+/);
+      return inputWords.every((w) => ww.includes(w));
+    });
+    setSuggestions(matches.slice(0, 8));
+    setShowDropdown(matches.length > 0 && matches[0] !== trimmed);
+    setActiveIndex(-1);
+  }, [whitelist]);
+
+  useEffect(() => {
+    updateSuggestions(name);
+  }, [name, updateSuggestions]);
+
+  /* ---------- Autocomplete keyboard nav ---------- */
+  const selectSuggestion = (suggestion: string) => {
+    setName(suggestion);
+    setShowDropdown(false);
+    setActiveIndex(-1);
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showDropdown) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((prev) => Math.min(prev + 1, suggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((prev) => Math.max(prev - 1, 0));
+    } else if (e.key === "Enter" && activeIndex >= 0) {
+      e.preventDefault();
+      selectSuggestion(suggestions[activeIndex]);
+    } else if (e.key === "Escape") {
+      setShowDropdown(false);
+      setActiveIndex(-1);
+    }
+  };
+
+  /* Close dropdown on outside click */
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node) &&
+        !inputRef.current?.contains(e.target as Node)
+      ) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  /* ---------- Form submission ---------- */
   const getBrowserInfo = () => {
     const userAgent = navigator.userAgent;
     let browser = "Unknown";
@@ -41,6 +161,8 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setNameTouched(true);
+
     if (!isOpen) {
       toast.error("Attendance is currently closed.", {
         description: "Please wait for an administrator to open attendance.",
@@ -48,7 +170,15 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
       return;
     }
 
+    if (nameError) {
+      toast.error("Name not found in the whitelist.", {
+        description: "Check your spelling or try a different combination of your names.",
+      });
+      return;
+    }
+
     setLoading(true);
+    setGpsPhase(0);
 
     if (!navigator.geolocation) {
       toast.error("Geolocation is not supported by your browser.");
@@ -58,8 +188,12 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
+        setGpsPhase(1);
         const { latitude, longitude } = position.coords;
         const { browser, device } = getBrowserInfo();
+
+        // Small delay so the user can see phase 2
+        await new Promise((r) => setTimeout(r, 400));
 
         try {
           const res = await fetch("/api/attendance", {
@@ -83,6 +217,7 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
           toast.success("Attendance signed successfully!");
           setName("");
           setPassword("");
+          setNameTouched(false);
         } catch (error: any) {
           toast.error(error.message || "An error occurred.", {
             description: "Please try again or contact an administrator.",
@@ -100,6 +235,8 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
+
+  const CurrentGpsIcon = GPS_PHASES[gpsPhase].icon;
 
   return (
     <motion.div
@@ -141,37 +278,120 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
             </motion.div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-xs uppercase tracking-wide text-muted-foreground">Member Name</Label>
+              {/* Name field with autocomplete */}
+              <div className="space-y-2 relative">
+                <Label htmlFor="name" className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Member Name
+                </Label>
                 <div className="relative">
-                  <User className="absolute left-4 top-4 h-4 w-4 text-muted-foreground/50" />
+                  <User className="absolute left-4 top-4 h-4 w-4 text-muted-foreground/50 z-10" />
                   <Input
+                    ref={inputRef}
                     id="name"
-                    placeholder="John Doe"
-                    className="pl-11"
+                    placeholder="e.g. John or John Michael"
+                    className={`pl-11 ${nameError ? "border-destructive/50 focus-visible:ring-destructive/40 focus-visible:border-destructive/40" : ""}`}
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => { setName(e.target.value); setNameTouched(true); }}
+                    onFocus={() => { if (suggestions.length > 0) setShowDropdown(true); }}
+                    onKeyDown={handleKeyDown}
                     required
                     disabled={loading || !isOpen}
+                    autoComplete="off"
                   />
+                  {nameTouched && name.trim().length > 0 && !loading && (
+                    <div className="absolute right-4 top-4 z-10">
+                      {isNameValid(name) ? (
+                        <Check className="w-4 h-4 text-success" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-destructive/60" />
+                      )}
+                    </div>
+                  )}
                 </div>
+
+                {/* Inline name error */}
+                <AnimatePresence>
+                  {nameError && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -4, height: 0 }}
+                      animate={{ opacity: 1, y: 0, height: "auto" }}
+                      exit={{ opacity: 0, y: -4, height: 0 }}
+                      className="text-xs text-destructive/80 flex items-center gap-1.5 pt-0.5"
+                    >
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                      {nameError}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+
+                {/* Autocomplete dropdown */}
+                <AnimatePresence>
+                  {showDropdown && suggestions.length > 0 && (
+                    <motion.div
+                      ref={dropdownRef}
+                      initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute z-50 left-0 right-0 mt-1 rounded-xl border border-border bg-card shadow-xl shadow-black/[0.08] overflow-hidden"
+                    >
+                      <div className="max-h-48 overflow-y-auto scrollbar-thin py-1">
+                        {suggestions.map((suggestion, i) => (
+                          <button
+                            key={suggestion}
+                            type="button"
+                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors duration-100 flex items-center gap-3 ${
+                              i === activeIndex
+                                ? "bg-primary/10 text-primary"
+                                : "text-foreground hover:bg-primary/5"
+                            }`}
+                            onMouseDown={(e) => { e.preventDefault(); selectSuggestion(suggestion); }}
+                            onMouseEnter={() => setActiveIndex(i)}
+                          >
+                            <User className="w-3.5 h-3.5 text-muted-foreground/50 flex-shrink-0" />
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
+
+              {/* Password field */}
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-xs uppercase tracking-wide text-muted-foreground">Shared Password</Label>
+                <Label htmlFor="password" className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Shared Password
+                </Label>
                 <div className="relative">
                   <KeyRound className="absolute left-4 top-4 h-4 w-4 text-muted-foreground/50" />
                   <Input
                     id="password"
                     type="password"
                     placeholder="Enter shared password"
-                    className="pl-11"
+                    className={`pl-11 ${passwordError ? "border-destructive/50 focus-visible:ring-destructive/40 focus-visible:border-destructive/40" : ""}`}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => { setPassword(e.target.value); setNameTouched(true); }}
                     required
                     disabled={loading || !isOpen}
                   />
                 </div>
+                <AnimatePresence>
+                  {passwordError && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -4, height: 0 }}
+                      animate={{ opacity: 1, y: 0, height: "auto" }}
+                      exit={{ opacity: 0, y: -4, height: 0 }}
+                      className="text-xs text-destructive/80 flex items-center gap-1.5 pt-0.5"
+                    >
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                      {passwordError}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
               </div>
+
+              {/* Submit button */}
               <Button
                 type="submit"
                 variant="gradient"
@@ -181,7 +401,8 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Verifying Location...
+                    <CurrentGpsIcon className="mr-1 h-4 w-4" />
+                    {GPS_PHASES[gpsPhase].label}
                   </>
                 ) : (
                   <>
@@ -190,6 +411,7 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
                   </>
                 )}
               </Button>
+
               {!isOpen && (
                 <p className="text-xs text-center text-muted-foreground pt-1">
                   Attendance checking is currently closed by the administrator.

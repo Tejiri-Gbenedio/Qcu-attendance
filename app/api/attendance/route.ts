@@ -28,7 +28,15 @@ export async function POST(req: Request) {
     }
 
     const whitelist = await getWhitelist();
-    if (!whitelist.includes(name.trim().toLowerCase())) {
+    const inputName = name.trim().toLowerCase();
+    const inputWords = inputName.split(/\s+/).filter(Boolean);
+
+    const isWhitelisted = whitelist.some((whitelistName: string) => {
+      const whitelistWords = whitelistName.split(/\s+/);
+      return inputWords.every((word: string) => whitelistWords.includes(word));
+    });
+
+    if (!isWhitelisted) {
       return NextResponse.json({ error: "Member not found in whitelist." }, { status: 403 });
     }
 

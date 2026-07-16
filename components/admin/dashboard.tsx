@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
@@ -12,11 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { EmptyState } from "@/components/ui/empty-state";
+import { DashboardSkeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
   CheckCircle2, XCircle, Lock, Unlock, Settings, LogOut,
   Search, Loader2, ShieldCheck, Clock, MapPin, Users,
-  TrendingUp, CalendarClock, ChevronLeft, ChevronRight,
+  TrendingUp, ChevronLeft, ChevronRight, ArrowUp, ArrowDown,
+  Download, CalendarIcon,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -44,6 +46,9 @@ interface AttendanceRecord {
   device: string;
 }
 
+type SortField = "memberName" | "time" | "distance" | "date";
+type SortDir = "asc" | "desc";
+
 export function Dashboard({ onLogout }: DashboardProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -58,7 +63,15 @@ export function Dashboard({ onLogout }: DashboardProps) {
   const [savingSettings, setSavingSettings] = useState(false);
   const [confirmToggle, setConfirmToggle] = useState(false);
 
-  const fetchData = async () => {
+  /* ---------- Sort state ---------- */
+  const [sortField, setSortField] = useState<SortField>("time");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  /* ---------- Date range filter ---------- */
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [statusRes, recordsRes, settingsRes] = await Promise.all([
@@ -75,11 +88,63 @@ export function Dashboard({ onLogout }: DashboardProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
+
+  /* ---------- Keyboard shortcuts ---------- */
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      if (e.key === "o" || e.key === "O") {
+        e.preventDefault();
+        if (!confirmToggle) setConfirmToggle(true);
+      } else if (e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        toast.info("Refreshing dashboard...");
+        fetchData();
+      } else if (e.key === "Escape") {
+        setConfirmToggle(false);
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [confirmToggle, fetchData]);
+
+  /* ---------- Sort ---------- */
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+  };
+
+  const sortRecords = (list: AttendanceRecord[]) => {
+    return [...list].sort((a, b) => {
+      let cmp = 0;
+      if (sortField === "memberName") cmp = a.memberName.localeCompare(b.memberName);
+      else if (sortField === "time") cmp = a.time.localeCompare(b.time);
+      else if (sortField === "distance") cmp = parseFloat(a.distance || "0") - parseFloat(b.distance || "0");
+      else if (sortField === "date") cmp = a.date.localeCompare(b.date);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return null;
+    return sortDir === "asc" ? (
+      <ArrowUp className="w-3 h-3 ml-1 inline" />
+    ) : (
+      <ArrowDown className="w-3 h-3 ml-1 inline" />
+    );
+  };
 
   const toggleStatus = async () => {
     setTogglingStatus(true);
@@ -129,39 +194,92 @@ export function Dashboard({ onLogout }: DashboardProps) {
     }
   };
 
-  const approved = records.filter(r => r.status === "Approved");
-  const rejected = records.filter(r => r.status === "Rejected");
-  const approvalRate = records.length > 0 ? Math.round((approved.length / records.length) * 100) : 0;
+  /* ---------- Date range filter ---------- */
+  const filterByDate = (list: AttendanceRecord[]) => {
+    if (!dateFrom && !dateTo) return list;
+    return list.filter((r) => {
+      if (dateFrom && r.date < dateFrom) return false;
+      if (dateTo && r.date > dateTo) return false;
+      return true;
+    });
+  };
 
-  const filteredApproved = approved.filter(r => r.memberName.toLowerCase().includes(searchApproved.toLowerCase()));
-  const filteredRejected = rejected.filter(r => r.memberName.toLowerCase().includes(searchRejected.toLowerCase()));
+  /* ---------- Data processing ---------- */
+  let approved = records.filter((r) => r.status === "Approved");
+  let rejected = records.filter((r) => r.status === "Rejected");
 
+  approved = filterByDate(approved);
+  rejected = filterByDate(rejected);
+
+  const approvalRate = (approved.length + rejected.length) > 0
+    ? Math.round((approved.length / (approved.length + rejected.length)) * 100)
+    : 0;
+
+  /* Search */
+  const filteredApproved = approved.filter((r) =>
+    r.memberName.toLowerCase().includes(searchApproved.toLowerCase())
+  );
+  const filteredRejected = rejected.filter((r) =>
+    r.memberName.toLowerCase().includes(searchRejected.toLowerCase())
+  );
+
+  /* Sort */
+  const sortedApproved = sortRecords(filteredApproved);
+  const sortedRejected = sortRecords(filteredRejected);
+
+  /* Pagination */
   const itemsPerPage = 6;
-  const paginatedApproved = filteredApproved.slice((pageApproved - 1) * itemsPerPage, pageApproved * itemsPerPage);
-  const paginatedRejected = filteredRejected.slice((pageRejected - 1) * itemsPerPage, pageRejected * itemsPerPage);
+  const paginatedApproved = sortedApproved.slice(
+    (pageApproved - 1) * itemsPerPage,
+    pageApproved * itemsPerPage
+  );
+  const paginatedRejected = sortedRejected.slice(
+    (pageRejected - 1) * itemsPerPage,
+    pageRejected * itemsPerPage
+  );
+
+  /* ---------- Export CSV ---------- */
+  const exportCSV = () => {
+    const headers = ["Date", "Service", "Member Name", "Time", "Latitude", "Longitude", "Distance (m)", "Status", "Reason", "Browser", "Device"];
+    const rows = records.map((r) => [
+      r.date, r.service, r.memberName, r.time,
+      r.latitude, r.longitude, r.distance, r.status,
+      r.reason, r.browser, r.device,
+    ]);
+    const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c}"`).join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `qcu-attendance-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Attendance records exported.");
+  };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center relative z-10">
-        <div className="flex flex-col items-center gap-4">
-          <div className="relative">
-            <div className="absolute inset-0 brand-gradient rounded-2xl blur-xl opacity-30" />
-            <Loader2 className="w-10 h-10 animate-spin text-primary relative" />
-          </div>
-          <p className="text-sm text-muted-foreground">Loading dashboard...</p>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (
     <div className="min-h-screen relative z-10">
+      {/* Keyboard shortcut hints */}
+      <div className="sr-only" aria-live="polite" role="status">
+        Keyboard shortcuts: O to toggle attendance, R to refresh, Escape to cancel.
+      </div>
+
       {/* Top Navigation */}
       <header className="sticky top-0 z-50 glass border-b border-border/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl overflow-hidden glass-card flex items-center justify-center">
-              <Image src="/soja-logo.jpeg" alt="SoJ" width={28} height={28} className="rounded-lg object-cover" />
+            <div className="w-9 h-9 rounded-xl glass-card flex items-center justify-center overflow-hidden dark:bg-white/10">
+              <Image
+                src="/soja-logo.jpeg"
+                alt="SoJ"
+                width={28}
+                height={28}
+                className="rounded-lg object-cover dark:brightness-[1.1] dark:contrast-[1.1]"
+              />
             </div>
             <div className="hidden sm:block">
               <h1 className="text-sm font-bold font-display leading-tight">QCU Dashboard</h1>
@@ -169,6 +287,10 @@ export function Dashboard({ onLogout }: DashboardProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <span className="hidden sm:inline text-[10px] text-muted-foreground/50 uppercase tracking-wider mr-1">
+              <kbd className="px-1 py-0.5 rounded bg-muted/50 text-[9px] font-mono">O</kbd> toggle&nbsp;
+              <kbd className="px-1 py-0.5 rounded bg-muted/50 text-[9px] font-mono">R</kbd> refresh
+            </span>
             <ThemeToggle />
             <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-destructive">
               <LogOut className="w-4 h-4 mr-2" /> Logout
@@ -180,7 +302,6 @@ export function Dashboard({ onLogout }: DashboardProps) {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Status Card */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <Card variant="glass" className="h-full">
               <CardContent className="pt-6 flex items-center justify-between">
@@ -199,7 +320,6 @@ export function Dashboard({ onLogout }: DashboardProps) {
             </Card>
           </motion.div>
 
-          {/* Approved Card */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
             <Card variant="glass" className="h-full">
               <CardContent className="pt-6 flex items-center justify-between">
@@ -216,7 +336,6 @@ export function Dashboard({ onLogout }: DashboardProps) {
             </Card>
           </motion.div>
 
-          {/* Rejected Card */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
             <Card variant="glass" className="h-full">
               <CardContent className="pt-6 flex items-center justify-between">
@@ -233,7 +352,6 @@ export function Dashboard({ onLogout }: DashboardProps) {
             </Card>
           </motion.div>
 
-          {/* Approval Rate Card */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
             <Card variant="glass" className="h-full">
               <CardContent className="pt-6 flex items-center justify-between">
@@ -288,6 +406,9 @@ export function Dashboard({ onLogout }: DashboardProps) {
                         Cancel
                       </Button>
                     </div>
+                    <p className="text-[10px] text-center text-muted-foreground/50">
+                      Press <kbd className="px-1 py-0.5 rounded bg-muted/50 text-[9px] font-mono">Esc</kbd> to cancel
+                    </p>
                   </motion.div>
                 ) : (
                   <motion.div
@@ -303,11 +424,13 @@ export function Dashboard({ onLogout }: DashboardProps) {
                       {isOpen ? <Lock className="w-5 h-5 mr-2" /> : <Unlock className="w-5 h-5 mr-2" />}
                       {isOpen ? "Close Attendance" : "Open Attendance"}
                     </Button>
+                    <p className="text-[10px] text-center text-muted-foreground/50 mt-2">
+                      Press <kbd className="px-1 py-0.5 rounded bg-muted/50 text-[9px] font-mono">O</kbd> to toggle
+                    </p>
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {/* Visual status indicator */}
               <div className="mt-4 flex items-center justify-center">
                 <div className={`relative w-3 h-3 rounded-full ${isOpen ? "bg-success" : "bg-destructive"}`}>
                   {isOpen && (
@@ -322,7 +445,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
           </Card>
 
           {/* Settings Form */}
-          <Card variant="glass" className="lg:col-span-2">
+          <Card variant="glass" className="lg:col-span-2" id="settings">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Settings className="w-5 h-5 text-accent" />
@@ -364,10 +487,14 @@ export function Dashboard({ onLogout }: DashboardProps) {
                       placeholder="e.g. 100"
                     />
                   </div>
-                  <div className="md:col-span-2 flex items-end">
+                  <div className="md:col-span-2 flex items-end gap-3">
                     <Button type="submit" variant="gradient" disabled={savingSettings} className="h-12">
                       {savingSettings ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                       Save Settings
+                    </Button>
+                    <Button type="button" variant="glass" className="h-12" onClick={exportCSV}>
+                      <Download className="w-4 h-4 mr-2" />
+                      Export CSV
                     </Button>
                   </div>
                 </form>
@@ -375,6 +502,50 @@ export function Dashboard({ onLogout }: DashboardProps) {
             </CardContent>
           </Card>
         </div>
+
+        {/* Date Range Filter */}
+        <Card variant="glass">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+              Filter by Date
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="dateFrom" className="text-[10px] uppercase tracking-wide text-muted-foreground">From</Label>
+                <Input
+                  id="dateFrom"
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => { setDateFrom(e.target.value); setPageApproved(1); setPageRejected(1); }}
+                  className="h-9 text-xs w-40"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="dateTo" className="text-[10px] uppercase tracking-wide text-muted-foreground">To</Label>
+                <Input
+                  id="dateTo"
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => { setDateTo(e.target.value); setPageApproved(1); setPageRejected(1); }}
+                  className="h-9 text-xs w-40"
+                />
+              </div>
+              {(dateFrom || dateTo) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 text-xs"
+                  onClick={() => { setDateFrom(""); setDateTo(""); }}
+                >
+                  Clear filter
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Tables */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -402,9 +573,15 @@ export function Dashboard({ onLogout }: DashboardProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Distance</TableHead>
+                    <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("memberName")}>
+                      Name <SortIcon field="memberName" />
+                    </TableHead>
+                    <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("time")}>
+                      Time <SortIcon field="time" />
+                    </TableHead>
+                    <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("distance")}>
+                      Distance <SortIcon field="distance" />
+                    </TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -432,7 +609,10 @@ export function Dashboard({ onLogout }: DashboardProps) {
                         <EmptyState
                           icon={Users}
                           title="No approved attendance yet"
-                          description="As members check in, approved records will appear here."
+                          description="As members check in from within the geofence, approved records will appear here."
+                          actionLabel="Configure Geofence"
+                          actionHref="#settings"
+                          action={() => document.getElementById("settings")?.scrollIntoView({ behavior: "smooth" })}
                         />
                       </TableCell>
                     </TableRow>
@@ -467,9 +647,15 @@ export function Dashboard({ onLogout }: DashboardProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Distance</TableHead>
+                    <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("memberName")}>
+                      Name <SortIcon field="memberName" />
+                    </TableHead>
+                    <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("time")}>
+                      Time <SortIcon field="time" />
+                    </TableHead>
+                    <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("distance")}>
+                      Distance <SortIcon field="distance" />
+                    </TableHead>
                     <TableHead>Reason</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
@@ -488,7 +674,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
                           <MapPin className="w-3 h-3 mr-1" />{r.distance}m
                         </span>
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">{r.reason}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate" title={r.reason}>{r.reason}</TableCell>
                       <TableCell>
                         <Badge variant="destructive" className="text-xs">Rejected</Badge>
                       </TableCell>
@@ -499,7 +685,10 @@ export function Dashboard({ onLogout }: DashboardProps) {
                         <EmptyState
                           icon={XCircle}
                           title="No rejected attendance"
-                          description="No out-of-bounds check-in attempts have been recorded."
+                          description="No out-of-bounds check-in attempts have been recorded. The geofence is working correctly."
+                          actionLabel="Review Settings"
+                          actionHref="#settings"
+                          action={() => document.getElementById("settings")?.scrollIntoView({ behavior: "smooth" })}
                         />
                       </TableCell>
                     </TableRow>
