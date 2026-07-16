@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CustomSelect } from "@/components/ui/custom-select";
 import { toast } from "sonner";
 import {
   Loader2, MapPin, User, KeyRound, CheckCircle2, Sparkles,
@@ -287,21 +288,18 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
                 <Label htmlFor="service" className="text-xs uppercase tracking-wide text-muted-foreground">
                   Service
                 </Label>
-                <div className="relative">
-                  <Church className="absolute left-4 top-4 h-4 w-4 text-muted-foreground/50 z-10" />
-                  <select
-                    id="service"
-                    value={service}
-                    onChange={(e) => setService(e.target.value as ServiceType)}
-                    disabled={loading || !isOpen}
-                    className="flex h-12 w-full rounded-xl border border-border bg-background/50 backdrop-blur px-4 py-2 pl-11 text-sm ring-offset-background transition-all duration-200 appearance-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40 focus-visible:bg-background disabled:cursor-not-allowed disabled:opacity-50"
-                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' fill='none' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center' }}
-                  >
-                    {SERVICES.map((s) => (
-                      <option key={s} value={s}>{s === "Sunday" ? "Sunday Service" : s === "Thursday" ? "Thursday Service" : "Other Service"}</option>
-                    ))}
-                  </select>
-                </div>
+                <CustomSelect
+                  options={[
+                    { value: "Sunday", label: "Sunday Service" },
+                    { value: "Thursday", label: "Thursday Service" },
+                    { value: "Other", label: "Other Service" },
+                  ]}
+                  value={service}
+                  onChange={(v) => setService(v as ServiceType)}
+                  placeholder="Select service"
+                  icon={<Church className="w-4 h-4" />}
+                  disabled={loading || !isOpen}
+                />
               </div>
 
               {/* Name field with autocomplete */}
