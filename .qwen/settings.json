@@ -6,7 +6,8 @@
       "Bash(curl *)",
       "computer_use__launch_app",
       "computer_use__page",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(findstr *)"
     ]
   },
   "$version": 4
