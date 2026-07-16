@@ -125,7 +125,7 @@ export function CustomSelect({
             transition={{ duration: 0.15 }}
             className={cn(
               "absolute z-50 left-0 right-0 mt-1.5 overflow-hidden",
-              "glass-card shadow-xl shadow-black/[0.08]",
+              "rounded-xl border border-border bg-card shadow-xl shadow-black/[0.08]",
               size === "sm" ? "rounded-lg" : "rounded-xl"
             )}
           >
