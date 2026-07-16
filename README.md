@@ -62,8 +62,10 @@ In `Whitelist`, put `Name` in `A1`, then list member names below it.
 In `Attendance`, add this header row:
 
 ```text
-Date | Service | Member Name | Time | Latitude | Longitude | Distance | Status | Reason | Browser | Device
+Date | Service | Member Name | Time | Latitude | Longitude | Distance | Status | Reason | Browser | Device | Device ID
 ```
+
+The `Device ID` column is used to prevent the same device from signing in twice in one day. Each browser generates a unique persistent ID stored in `localStorage`.
 
 ## Google Cloud Credentials
 

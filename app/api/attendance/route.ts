@@ -1,21 +1,21 @@
 import { NextResponse } from "next/server";
-import { getConfig, getWhitelist, appendAttendance } from "@/lib/google-sheets";
+import { getConfig, getWhitelist, appendAttendance, hasDeviceSignedToday } from "@/lib/google-sheets";
 import { calculateDistance } from "@/lib/geofencing";
 import { getAttendanceEnvConfig } from "@/lib/env";
 import { formatLagosTime, formatLagosDate } from "@/lib/timezone";
+import { isValidAdminPassword } from "@/lib/auth";
+import { ALLOWED_SERVICES } from "@/types";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, password, latitude, longitude, browser, device, service } = body;
+    const { name, password, latitude, longitude, browser, device, service, deviceId, adminPassword } = body;
 
-    const allowedServices = ["Sunday", "Thursday", "Other"];
-
-    if (!name || !password || !latitude || !longitude || !service) {
+    if (!name || !password || !latitude || !longitude || !service || !deviceId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    if (!allowedServices.includes(service)) {
+    if (!ALLOWED_SERVICES.includes(service)) {
       return NextResponse.json({ error: "Invalid service type." }, { status: 400 });
     }
 
@@ -47,6 +47,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Member not found in whitelist." }, { status: 403 });
     }
 
+    // ── Device restriction check ───────────────────────────────────────
+    const today = formatLagosDate(new Date());
+    const existingSignIn = await hasDeviceSignedToday(deviceId, today);
+
+    if (existingSignIn) {
+      // If an admin password is provided and valid, allow the override
+      if (adminPassword && isValidAdminPassword(adminPassword)) {
+        // Admin override — fall through to record attendance
+      } else {
+        return NextResponse.json({
+          error: "device_already_signed",
+          message: `This device has already signed in for ${existingSignIn} today.`,
+          signedAs: existingSignIn,
+        }, { status: 409 });
+      }
+    }
+
     const churchLat = parseFloat(config.churchLat || envConfig.churchLat);
     const churchLng = parseFloat(config.churchLng || envConfig.churchLng);
     const allowedRadius = parseFloat(config.allowedRadius || envConfig.allowedRadius);
@@ -56,7 +73,7 @@ export async function POST(req: Request) {
 
     const now = new Date();
     const record = {
-      date: formatLagosDate(now),
+      date: today,
       service: service,
       memberName: name,
       time: formatLagosTime(now),
@@ -66,7 +83,8 @@ export async function POST(req: Request) {
       status: isInside ? "Approved" : "Rejected",
       reason: isInside ? "Inside geofence" : "Outside geofence",
       browser: browser || "Unknown",
-      device: device || "Unknown"
+      device: device || "Unknown",
+      deviceId: deviceId,
     };
 
     await appendAttendance(record);

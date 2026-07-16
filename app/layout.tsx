@@ -4,10 +4,17 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { PWARegister } from "@/components/pwa-register";
 
 export const metadata: Metadata = {
   title: "Quality Control Unit | Streams of Joy International",
   description: "Secure geofenced attendance platform ensuring authenticity, accountability and excellence.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "QCU Attendance",
+  },
 };
 
 export default function RootLayout({
@@ -33,6 +40,7 @@ export default function RootLayout({
           </div>
           {children}
           <Toaster richColors position="top-right" />
+          <PWARegister />
         </ThemeProvider>
       </body>
     </html>

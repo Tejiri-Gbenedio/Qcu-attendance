@@ -1,0 +1,3 @@
+- [Project features](memory/project-features.md) — Key features, device restriction, PWA
+- [Google Sheets structure](memory/google-sheets-structure.md) — Config, Whitelist, Attendance tab layout
+- [Deployment](memory/deployment.md) — Vercel deploy config and notes

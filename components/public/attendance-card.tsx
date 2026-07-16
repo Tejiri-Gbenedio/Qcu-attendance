@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { toast } from "sonner";
 import { formatLagosTime } from "@/lib/timezone";
+import { getDeviceId } from "@/lib/device-id";
 import {
   Loader2, MapPin, User, KeyRound, CheckCircle2, Sparkles,
-  Satellite, Navigation, AlertCircle, Check, Church,
+  Satellite, Navigation, AlertCircle, Check, Church, Shield,
 } from "lucide-react";
 
 const SERVICES = ["Sunday", "Thursday", "Other"] as const;
@@ -39,6 +40,11 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
   const [success, setSuccess] = useState(false);
   const [successData, setSuccessData] = useState<{ name: string; time: string } | null>(null);
   const [gpsPhase, setGpsPhase] = useState(0);
+  const [deviceId] = useState(getDeviceId);
+
+  /* ---------- Admin override state ---------- */
+  const [showAdminOverride, setShowAdminOverride] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
 
   /* ---------- Autocomplete state ---------- */
   const [whitelist, setWhitelist] = useState<string[]>([]);
@@ -165,23 +171,9 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
     return { browser, device };
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setNameTouched(true);
-
-    if (!isOpen) {
-      toast.error("Attendance is currently closed.", {
-        description: "Please wait for an administrator to open attendance.",
-      });
-      return;
-    }
-
-    if (nameError) {
-      toast.error("Name not found in the whitelist.", {
-        description: "Check your spelling or try a different combination of your names.",
-      });
-      return;
-    }
+  const submitAttendance = async (adminPw?: string) => {
+    setShowAdminOverride(false);
+    setAdminPassword("");
 
     setLoading(true);
     setGpsPhase(0);
@@ -202,15 +194,25 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
         await new Promise((r) => setTimeout(r, 400));
 
         try {
+          const body: Record<string, any> = {
+            name, password, service, latitude, longitude, browser, device, deviceId,
+          };
+          if (adminPw) body.adminPassword = adminPw;
+
           const res = await fetch("/api/attendance", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, password, service, latitude, longitude, browser, device }),
+            body: JSON.stringify(body),
           });
 
           const data = await res.json();
 
           if (!res.ok) {
+            // ── Device already signed — show admin override ──
+            if (data.error === "device_already_signed") {
+              setShowAdminOverride(true);
+              throw new Error(data.message || "This device has already signed in today.");
+            }
             throw new Error(data.error || "Failed to sign attendance");
           }
 
@@ -225,9 +227,11 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
           setPassword("");
           setNameTouched(false);
         } catch (error: any) {
-          toast.error(error.message || "An error occurred.", {
-            description: "Please try again or contact an administrator.",
-          });
+          if (!showAdminOverride) {
+            toast.error(error.message || "An error occurred.", {
+              description: "Please try again or contact an administrator.",
+            });
+          }
         } finally {
           setLoading(false);
         }
@@ -240,6 +244,33 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setNameTouched(true);
+
+    if (!isOpen) {
+      toast.error("Attendance is currently closed.", {
+        description: "Please wait for an administrator to open attendance.",
+      });
+      return;
+    }
+
+    if (nameError) {
+      toast.error("Name not found in the whitelist.", {
+        description: "Check your spelling or try a different combination of your names.",
+      });
+      return;
+    }
+
+    // Check if device already signed today (local check before hitting server)
+    await submitAttendance();
+  };
+
+  const handleAdminOverride = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitAttendance(adminPassword);
   };
 
   const CurrentGpsIcon = GPS_PHASES[gpsPhase].icon;
@@ -281,6 +312,71 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
               <Button variant="outline" size="sm" onClick={() => { setSuccess(false); setSuccessData(null); }}>
                 Sign in for another member
               </Button>
+            </motion.div>
+          ) : showAdminOverride ? (
+            /* ── Admin Override Form ── */
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="flex flex-col items-center text-center mb-6">
+                <div className="w-14 h-14 rounded-2xl bg-warning/10 flex items-center justify-center mb-3">
+                  <Shield className="w-7 h-7 text-warning" strokeWidth={1.5} />
+                </div>
+                <h3 className="text-base font-semibold mb-1">Device Already Used Today</h3>
+                <p className="text-xs text-muted-foreground max-w-xs">
+                  This device has already signed attendance. An administrator can override this with their admin password.
+                </p>
+              </div>
+
+              <form onSubmit={handleAdminOverride} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="adminPassword" className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Admin Password
+                  </Label>
+                  <div className="relative">
+                    <Shield className="absolute left-4 top-4 h-4 w-4 text-muted-foreground/50" />
+                    <Input
+                      id="adminPassword"
+                      type="password"
+                      placeholder="Enter admin password to override"
+                      className="pl-11"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                      required
+                      autoFocus
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="submit"
+                  variant="gradient"
+                  className="w-full h-12 text-base font-semibold"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="mr-2 h-4 w-4" />
+                      Admin Override — Sign In
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs text-muted-foreground"
+                  onClick={() => { setShowAdminOverride(false); setAdminPassword(""); }}
+                >
+                  Cancel
+                </Button>
+              </form>
             </motion.div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
