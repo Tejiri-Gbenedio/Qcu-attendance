@@ -1,8 +1,9 @@
-const CACHE = "qcu-attendance-v1";
+const CACHE = "qcu-attendance-v2";
 const STATIC_URLS = ["/", "/admin/login", "/admin/dashboard"];
 
-// Install — pre-cache the app shell
+// Install — pre-cache the app shell, activate immediately
 self.addEventListener("install", (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE).then((cache) => {
       return cache.addAll(STATIC_URLS);
@@ -10,12 +11,12 @@ self.addEventListener("install", (event) => {
   );
 });
 
-// Activate — clean up old caches
+// Activate — clean up old caches, take control of open pages
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    )
+    ).then(() => self.clients.claim())
   );
 });
 
