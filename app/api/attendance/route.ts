@@ -46,9 +46,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Member not found in whitelist." }, { status: 403 });
     }
 
-    const churchLat = parseFloat(envConfig.churchLat || config.churchLat);
-    const churchLng = parseFloat(envConfig.churchLng || config.churchLng);
-    const allowedRadius = parseFloat(envConfig.allowedRadius || config.allowedRadius);
+    const churchLat = parseFloat(config.churchLat || envConfig.churchLat);
+    const churchLng = parseFloat(config.churchLng || envConfig.churchLng);
+    const allowedRadius = parseFloat(config.allowedRadius || envConfig.allowedRadius);
 
     const distance = calculateDistance(latitude, longitude, churchLat, churchLng);
     const isInside = distance <= allowedRadius;

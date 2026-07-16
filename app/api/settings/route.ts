@@ -13,9 +13,9 @@ export async function GET() {
     const envConfig = getLocationEnvConfig();
 
     return NextResponse.json({
-      churchLat: envConfig.churchLat || config.churchLat || "",
-      churchLng: envConfig.churchLng || config.churchLng || "",
-      allowedRadius: envConfig.allowedRadius || config.allowedRadius || "",
+      churchLat: config.churchLat || envConfig.churchLat || "",
+      churchLng: config.churchLng || envConfig.churchLng || "",
+      allowedRadius: config.allowedRadius || envConfig.allowedRadius || "",
     });
   } catch (error) {
     return NextResponse.json({ error: "Failed to fetch settings" }, { status: 500 });
