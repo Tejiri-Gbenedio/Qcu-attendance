@@ -16,8 +16,8 @@ export default function HomePage() {
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      setCurrentTime(now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
-      setCurrentDate(now.toLocaleDateString([], { weekday: "long", year: "numeric", month: "long", day: "numeric" }));
+      setCurrentTime(now.toLocaleTimeString("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+      setCurrentDate(now.toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", weekday: "long", year: "numeric", month: "long", day: "numeric" }));
     };
     updateTime();
     const interval = setInterval(updateTime, 1000);

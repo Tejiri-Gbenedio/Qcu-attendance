@@ -216,7 +216,7 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
           const now = new Date();
           setSuccessData({
             name: name,
-            time: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            time: now.toLocaleTimeString("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit" }),
           });
           setSuccess(true);
           toast.success("Attendance signed successfully!");

@@ -55,10 +55,10 @@ export async function POST(req: Request) {
 
     const now = new Date();
     const record = {
-      date: now.toLocaleDateString(),
+      date: now.toLocaleDateString("en-GB", { timeZone: "Africa/Lagos" }),
       service: service,
       memberName: name,
-      time: now.toLocaleTimeString(),
+      time: now.toLocaleTimeString("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit" }),
       latitude: latitude.toString(),
       longitude: longitude.toString(),
       distance: distance.toFixed(2),
