@@ -18,7 +18,7 @@ import {
   CheckCircle2, XCircle, Lock, Unlock, Settings, LogOut,
   Search, Loader2, ShieldCheck, Clock, MapPin, Users,
   TrendingUp, ChevronLeft, ChevronRight, ArrowUp, ArrowDown,
-  Download, CalendarIcon,
+  Download, CalendarIcon, SlidersHorizontal,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -70,6 +70,9 @@ export function Dashboard({ onLogout }: DashboardProps) {
   /* ---------- Date range filter ---------- */
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+
+  /* ---------- Service filter ---------- */
+  const [serviceFilter, setServiceFilter] = useState<string>("All");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -207,6 +210,12 @@ export function Dashboard({ onLogout }: DashboardProps) {
   /* ---------- Data processing ---------- */
   let approved = records.filter((r) => r.status === "Approved");
   let rejected = records.filter((r) => r.status === "Rejected");
+
+  /* Service filter */
+  if (serviceFilter !== "All") {
+    approved = approved.filter((r) => r.service === serviceFilter);
+    rejected = rejected.filter((r) => r.service === serviceFilter);
+  }
 
   approved = filterByDate(approved);
   rejected = filterByDate(rejected);
@@ -503,16 +512,32 @@ export function Dashboard({ onLogout }: DashboardProps) {
           </Card>
         </div>
 
-        {/* Date Range Filter */}
+        {/* Filters — Service + Date Range */}
         <Card variant="glass">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm">
               <CalendarIcon className="w-4 h-4 text-muted-foreground" />
-              Filter by Date
+              Filters
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap items-end gap-4">
+              {/* Service filter */}
+              <div className="space-y-1.5">
+                <Label htmlFor="serviceFilter" className="text-[10px] uppercase tracking-wide text-muted-foreground">Service</Label>
+                <select
+                  id="serviceFilter"
+                  value={serviceFilter}
+                  onChange={(e) => { setServiceFilter(e.target.value); setPageApproved(1); setPageRejected(1); }}
+                  className="flex h-9 w-36 rounded-lg border border-border bg-background/50 backdrop-blur px-3 text-xs ring-offset-background transition-all duration-200 appearance-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40"
+                  style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' fill='none' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center' }}
+                >
+                  <option value="All">All Services</option>
+                  <option value="Sunday">Sunday</option>
+                  <option value="Thursday">Thursday</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="dateFrom" className="text-[10px] uppercase tracking-wide text-muted-foreground">From</Label>
                 <Input
@@ -533,14 +558,14 @@ export function Dashboard({ onLogout }: DashboardProps) {
                   className="h-9 text-xs w-40"
                 />
               </div>
-              {(dateFrom || dateTo) && (
+              {(serviceFilter !== "All" || dateFrom || dateTo) && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-9 text-xs"
-                  onClick={() => { setDateFrom(""); setDateTo(""); }}
+                  onClick={() => { setServiceFilter("All"); setDateFrom(""); setDateTo(""); }}
                 >
-                  Clear filter
+                  Clear filters
                 </Button>
               )}
             </div>

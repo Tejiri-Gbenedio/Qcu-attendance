@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx *)",
+      "Bash(timeout *)",
+      "Bash(curl *)",
+      "computer_use__launch_app",
+      "computer_use__page",
+      "Bash(git push *)"
+    ]
+  },
+  "$version": 4
+}

@@ -9,8 +9,11 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
   Loader2, MapPin, User, KeyRound, CheckCircle2, Sparkles,
-  Satellite, Navigation, AlertCircle, Check,
+  Satellite, Navigation, AlertCircle, Check, Church,
 } from "lucide-react";
+
+const SERVICES = ["Sunday", "Thursday", "Other"] as const;
+type ServiceType = typeof SERVICES[number];
 
 interface AttendanceCardProps {
   isOpen: boolean | null;
@@ -29,6 +32,7 @@ const GPS_PHASES: GpsPhase[] = [
 export function AttendanceCard({ isOpen }: AttendanceCardProps) {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [service, setService] = useState<ServiceType>("Sunday");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [successData, setSuccessData] = useState<{ name: string; time: string } | null>(null);
@@ -199,7 +203,7 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
           const res = await fetch("/api/attendance", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, password, latitude, longitude, browser, device }),
+            body: JSON.stringify({ name, password, service, latitude, longitude, browser, device }),
           });
 
           const data = await res.json();
@@ -278,6 +282,28 @@ export function AttendanceCard({ isOpen }: AttendanceCardProps) {
             </motion.div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Service selector */}
+              <div className="space-y-2">
+                <Label htmlFor="service" className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Service
+                </Label>
+                <div className="relative">
+                  <Church className="absolute left-4 top-4 h-4 w-4 text-muted-foreground/50 z-10" />
+                  <select
+                    id="service"
+                    value={service}
+                    onChange={(e) => setService(e.target.value as ServiceType)}
+                    disabled={loading || !isOpen}
+                    className="flex h-12 w-full rounded-xl border border-border bg-background/50 backdrop-blur px-4 py-2 pl-11 text-sm ring-offset-background transition-all duration-200 appearance-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40 focus-visible:bg-background disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' fill='none' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center' }}
+                  >
+                    {SERVICES.map((s) => (
+                      <option key={s} value={s}>{s === "Sunday" ? "Sunday Service" : s === "Thursday" ? "Thursday Service" : "Other Service"}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               {/* Name field with autocomplete */}
               <div className="space-y-2 relative">
                 <Label htmlFor="name" className="text-xs uppercase tracking-wide text-muted-foreground">

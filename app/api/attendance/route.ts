@@ -6,10 +6,16 @@ import { getAttendanceEnvConfig } from "@/lib/env";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, password, latitude, longitude, browser, device } = body;
+    const { name, password, latitude, longitude, browser, device, service } = body;
 
-    if (!name || !password || !latitude || !longitude) {
+    const allowedServices = ["Sunday", "Thursday", "Other"];
+
+    if (!name || !password || !latitude || !longitude || !service) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    if (!allowedServices.includes(service)) {
+      return NextResponse.json({ error: "Invalid service type." }, { status: 400 });
     }
 
     const config = await getConfig();
@@ -50,7 +56,7 @@ export async function POST(req: Request) {
     const now = new Date();
     const record = {
       date: now.toLocaleDateString(),
-      service: "Main Service",
+      service: service,
       memberName: name,
       time: now.toLocaleTimeString(),
       latitude: latitude.toString(),
