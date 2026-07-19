@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { formatLagosTimeWithSeconds, formatLagosDateLong } from "@/lib/timezone";
-import { Clock, CalendarDays, ShieldCheck, ShieldAlert } from "lucide-react";
+import Link from "next/link";
+import { Clock, CalendarDays, ShieldCheck, ShieldAlert, Lock } from "lucide-react";
 import { AttendanceCard } from "@/components/public/attendance-card";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
   const [currentTime, setCurrentTime] = useState<string>("");
@@ -46,7 +48,13 @@ export default function HomePage() {
   return (
     <main className="min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-8 relative z-10">
       {/* Top Right Controls */}
-      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20 flex items-center gap-2">
+        <Button asChild variant="outline" size="sm" className="glass-card gap-2">
+          <Link href="/admin" aria-label="Admin login">
+            <Lock className="w-4 h-4" />
+            <span className="hidden sm:inline">Admin</span>
+          </Link>
+        </Button>
         <ThemeToggle />
       </div>
 
