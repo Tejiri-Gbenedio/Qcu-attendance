@@ -249,23 +249,32 @@ export function Dashboard({ onLogout }: DashboardProps) {
   );
 
   /* ---------- Export CSV ---------- */
-  const exportCSV = () => {
+  const downloadCSV = (data: AttendanceRecord[], label: string) => {
+    if (data.length === 0) {
+      toast.error(`No ${label.toLowerCase()} records to export.`);
+      return;
+    }
     const headers = ["Date", "Service", "Member Name", "Time", "Latitude", "Longitude", "Distance (m)", "Status", "Reason", "Browser", "Device"];
-    const rows = records.map((r) => [
+    const rows = data.map((r) => [
       r.date, r.service, r.memberName, r.time,
       r.latitude, r.longitude, r.distance, r.status,
       r.reason, r.browser, r.device,
     ]);
-    const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c}"`).join(","))].join("\n");
+    const escape = (c: string) => `"${String(c ?? "").replace(/"/g, '""')}"`;
+    const csv = [headers.join(","), ...rows.map((r) => r.map(escape).join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `qcu-attendance-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `qcu-${label.toLowerCase()}-attendance-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Attendance records exported.");
+    toast.success(`${label} attendance exported (${data.length} record${data.length === 1 ? "" : "s"}).`);
   };
+
+  const exportApproved = () => downloadCSV(sortedApproved, "Approved");
+  const exportRejected = () => downloadCSV(sortedRejected, "Rejected");
+  const exportAll = () => downloadCSV([...sortedApproved, ...sortedRejected], "All");
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -502,9 +511,9 @@ export function Dashboard({ onLogout }: DashboardProps) {
                       {savingSettings ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                       Save Settings
                     </Button>
-                    <Button type="button" variant="glass" className="h-12" onClick={exportCSV}>
+                    <Button type="button" variant="glass" className="h-12" onClick={exportAll}>
                       <Download className="w-4 h-4 mr-2" />
-                      Export CSV
+                      Export All
                     </Button>
                   </div>
                 </form>
@@ -585,14 +594,27 @@ export function Dashboard({ onLogout }: DashboardProps) {
                 </CardTitle>
                 <CardDescription className="mt-1">Members inside the geofence</CardDescription>
               </div>
-              <div className="relative w-36 sm:w-40">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground/50" />
-                <Input
-                  placeholder="Search..."
-                  className="pl-9 h-9 text-xs"
-                  value={searchApproved}
-                  onChange={e => { setSearchApproved(e.target.value); setPageApproved(1); }}
-                />
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="glass"
+                  size="sm"
+                  className="h-9 gap-2 text-success shrink-0"
+                  onClick={exportApproved}
+                  disabled={sortedApproved.length === 0}
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">Export</span>
+                </Button>
+                <div className="relative w-28 sm:w-40">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground/50" />
+                  <Input
+                    placeholder="Search..."
+                    className="pl-9 h-9 text-xs"
+                    value={searchApproved}
+                    onChange={e => { setSearchApproved(e.target.value); setPageApproved(1); }}
+                  />
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -659,14 +681,27 @@ export function Dashboard({ onLogout }: DashboardProps) {
                 </CardTitle>
                 <CardDescription className="mt-1">Members outside geofence or invalid</CardDescription>
               </div>
-              <div className="relative w-36 sm:w-40">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground/50" />
-                <Input
-                  placeholder="Search..."
-                  className="pl-9 h-9 text-xs"
-                  value={searchRejected}
-                  onChange={e => { setSearchRejected(e.target.value); setPageRejected(1); }}
-                />
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="glass"
+                  size="sm"
+                  className="h-9 gap-2 text-destructive shrink-0"
+                  onClick={exportRejected}
+                  disabled={sortedRejected.length === 0}
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">Export</span>
+                </Button>
+                <div className="relative w-28 sm:w-40">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground/50" />
+                  <Input
+                    placeholder="Search..."
+                    className="pl-9 h-9 text-xs"
+                    value={searchRejected}
+                    onChange={e => { setSearchRejected(e.target.value); setPageRejected(1); }}
+                  />
+                </div>
               </div>
             </CardHeader>
             <CardContent>
