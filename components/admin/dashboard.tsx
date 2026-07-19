@@ -66,7 +66,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
 
   /* ---------- Sort state ---------- */
   const [sortField, setSortField] = useState<SortField>("time");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   /* ---------- Date range filter ---------- */
   const [dateFrom, setDateFrom] = useState("");
@@ -130,11 +130,22 @@ export function Dashboard({ onLogout }: DashboardProps) {
     }
   };
 
+  // Parse a 12-hour time string like "6:30 AM" / "12:05 PM" into minutes since midnight.
+  const timeToMinutes = (t: string) => {
+    const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)$/i.exec((t || "").trim());
+    if (!m) return Number.MAX_SAFE_INTEGER; // unparseable times sort last
+    let hours = parseInt(m[1], 10) % 12;
+    const minutes = parseInt(m[2], 10);
+    const seconds = m[3] ? parseInt(m[3], 10) : 0;
+    if (/PM/i.test(m[4])) hours += 12;
+    return hours * 3600 + minutes * 60 + seconds;
+  };
+
   const sortRecords = (list: AttendanceRecord[]) => {
     return [...list].sort((a, b) => {
       let cmp = 0;
       if (sortField === "memberName") cmp = a.memberName.localeCompare(b.memberName);
-      else if (sortField === "time") cmp = a.time.localeCompare(b.time);
+      else if (sortField === "time") cmp = timeToMinutes(a.time) - timeToMinutes(b.time);
       else if (sortField === "distance") cmp = parseFloat(a.distance || "0") - parseFloat(b.distance || "0");
       else if (sortField === "date") cmp = a.date.localeCompare(b.date);
       return sortDir === "asc" ? cmp : -cmp;
