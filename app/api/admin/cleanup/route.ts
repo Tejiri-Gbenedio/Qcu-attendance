@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { deleteRejectedAttendance } from "@/lib/google-sheets";
 import { isAdminAuthenticated } from "@/lib/auth";
 
@@ -14,7 +14,7 @@ export async function POST() {
       deleted,
       message: deleted === 0
         ? "No rejected records found."
-        : Successfully deleted  rejected record.,
+        : `Successfully deleted ${deleted} rejected record${deleted === 1 ? "" : "s"}.`,
     });
   } catch (error) {
     console.error("Cleanup Error:", error);
