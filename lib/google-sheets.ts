@@ -44,7 +44,41 @@ export async function getWhitelist() {
   return rows.flat().map((name) => name.trim().toLowerCase()).filter(Boolean);
 }
 
+/**
+ * Append an attendance record to the Attendance sheet.
+ * If the record's date differs from the last non-empty date in the sheet,
+ * a blank separator row is inserted first so each attendance day is visually grouped.
+ */
 export async function appendAttendance(record: Record<string, string>) {
+  // Read column A (dates) to find the last non-empty date
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "Attendance!A:A",
+  });
+  const rows = res.data.values || [];
+
+  if (rows.length > 1) {
+    // Scan from bottom to find the last non-empty date (skip header at index 0)
+    let lastDate = "";
+    for (let i = rows.length - 1; i >= 1; i--) {
+      const val = (rows[i][0] || "").trim();
+      if (val !== "") {
+        lastDate = val;
+        break;
+      }
+    }
+    // If the date has changed, insert a blank separator row first
+    if (lastDate !== "" && lastDate !== record.date) {
+      const emptyRow = Array(12).fill("");
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: "Attendance!A:L",
+        valueInputOption: "RAW",
+        requestBody: { values: [emptyRow] },
+      });
+    }
+  }
+
   const values = [[
     record.date,
     record.service,
@@ -113,4 +147,49 @@ export async function hasDeviceSignedToday(deviceId: string, date: string): Prom
     }
   }
   return null;
+}
+
+/**
+ * Delete all rejected attendance records from the Attendance sheet.
+ * Only rows where status (column H) is "Approved" are kept.
+ * The header row is always preserved.
+ *
+ * Sheet columns (A:L): A=date, B=service, C=memberName, D=time, E=lat, F=lng,
+ * G=distance, H=status, I=reason, J=browser, K=device, L=deviceId.
+ *
+ * @returns The number of deleted (rejected) records.
+ */
+export async function deleteRejectedAttendance(): Promise<number> {
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "Attendance!A:L",
+  });
+
+  const rows = res.data.values || [];
+  if (rows.length <= 1) return 0; // header only or empty
+
+  const header = rows[0];
+  const records = rows.slice(1);
+
+  const approved = records.filter((row) => row[7] === "Approved");
+  const rejected = records.filter((row) => row[7] !== "Approved");
+
+  if (rejected.length === 0) return 0;
+
+  // Clear the entire Attendance data range
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "Attendance!A:L",
+  });
+
+  // Write back header + approved records
+  const newValues = [header, ...approved];
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "Attendance!A1",
+    valueInputOption: "RAW",
+    requestBody: { values: newValues },
+  });
+
+  return rejected.length;
 }
